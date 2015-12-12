@@ -11,6 +11,7 @@ import Data.Conduit
 import Data.Random.Extras
 
 m = 2
+objectsList = [[1.0,2.0], [2.0,3.0], [3.0,4.0], [4.0,5.0]]
 centersList = [[1.0,2.0], [2.0,3.0]]
 currCenter = [1.0,2.0]
 currObject = [3.0,4.0]
@@ -26,10 +27,13 @@ euclidDistance a b = sqrt (sum (zipWith (\a b -> (a - b)**2) a b))
 
 getInitialCenters :: [a] -> Int -> [a]
 getInitialCenters xs n = take n xs 
+
+-------------------BelongingMatrixCalculation------------------------------------------
  
 matrixCellValueOnIteration :: [Double] -> [Double] -> [Double] -> Double
 matrixCellValueOnIteration centerFromList currCenter currObject = 
-    ((euclidDistance currObject currCenter) / (euclidDistance currObject centerFromList)) ** (2 / (m - 1))
+    if isNaN func then 1 else func  
+    where func = ((euclidDistance currObject currCenter) / (euclidDistance currObject centerFromList)) ** (2 / (m - 1))
 
 matrixCellValue :: [[Double]] -> [Double] -> [Double] -> Double
 matrixCellValue centersList currCenter currObject = 
@@ -38,6 +42,12 @@ matrixCellValue centersList currCenter currObject =
 getBeloningsCoeffsForObject :: [[Double]] -> [Double] -> [Double]
 getBeloningsCoeffsForObject centersList currObject = 
     map (\currCenter -> matrixCellValue centersList currCenter currObject) centersList
+
+getBeloningsMatrix :: [[Double]] -> [[Double]] -> [[Double]]
+getBeloningsMatrix objectsList centersList=
+    map (\currObject -> getBeloningsCoeffsForObject centersList currObject) objectsList
+
+----------------------------------------------------------------------------------------
 
 main = do
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
