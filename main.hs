@@ -35,8 +35,9 @@ matrixCellValue :: [[Double]] -> [Double] -> [Double] -> Double
 matrixCellValue centersList currCenter currObject = 
     (foldl (\acc centerFromList -> acc + matrixCellValueOnIteration centerFromList currCenter currObject) 0 centersList) ** (-1)
 
-
-
+getBeloningsCoeffsForObject :: [[Double]] -> [Double] -> [Double]
+getBeloningsCoeffsForObject centersList currObject = 
+    map (\currCenter -> matrixCellValue centersList currCenter currObject) centersList
 
 main = do
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
