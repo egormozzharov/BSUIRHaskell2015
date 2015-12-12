@@ -8,6 +8,8 @@ import qualified Data.Text as T
 import Data.CSV.Conduit
 import Data.Conduit
 
+import Data.Random.Extras
+
 convertFromCsv :: V.Vector (Row String) -> [[Double]]
 convertFromCsv = processCsv . V.toList
     where processCsv = filter (not . null) . map processRow 
@@ -15,7 +17,11 @@ convertFromCsv = processCsv . V.toList
           maybeRead = fmap fst . listToMaybe . (reads :: String -> [(Double, String)])
       
 euclidDistance :: Floating c => [c] -> [c] -> c
-euclidDistance a b = sqrt (sum (zipWith (\a b -> (a + b)^2) a b))
+euclidDistance a b = sqrt (sum (zipWith (\a b -> (a - b)**2) a b))
+
+getInitialCenters :: [a] -> Int -> [a]
+getInitialCenters xs n = take n xs 
+
 
 main = do
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
