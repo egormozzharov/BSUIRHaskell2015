@@ -14,6 +14,8 @@ convertFromCsv = processCsv . V.toList
           processRow = map (fromMaybe 0.0) . filter isJust . map maybeRead
           maybeRead = fmap fst . listToMaybe . (reads :: String -> [(Double, String)])
       
+euclidDistance :: Floating c => [c] -> [c] -> c
+euclidDistance a b = sqrt (sum (zipWith (\a b -> (a + b)^2) a b))
 
 main = do
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
