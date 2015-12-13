@@ -2,12 +2,13 @@ module Main where
 
 import System.IO
 import Data.Maybe
-
-import qualified Data.Vector as V
-import qualified Data.Text as T
 import Data.CSV.Conduit
 import Data.Conduit
 import Data.Random.Extras
+import Data.List
+import qualified Data.Vector as V
+import qualified Data.Text as T
+
 import Distance
 
 m = 2
@@ -23,7 +24,7 @@ convertFromCsv = processCsv . V.toList
           processRow = map (fromMaybe 0.0) . filter isJust . map maybeRead
           maybeRead = fmap fst . listToMaybe . (reads :: String -> [(Double, String)])
       
--------------------Initialization------------------------------------------
+-------------------Initialization------------------------------------------------------
 getInitialCenters :: [a] -> Int -> [a]
 getInitialCenters xs n = take n xs  
 
@@ -44,10 +45,31 @@ getBeloningsCoeffsForObject centersList currObject =
 
 
 getBeloningsMatrix :: [[Double]] -> [[Double]] -> [[Double]]
-getBeloningsMatrix objectsList scentersLit=
+getBeloningsMatrix objectsList centersList =
     map (\currObject -> getBeloningsCoeffsForObject centersList currObject) objectsList
 
 --------------------CentersCalculation---------------------------------------------------
+foldListOfLists :: [[Double]] -> [Double]
+foldListOfLists listOfLists@(x:xs) = 
+    zipWith (-) (foldl (\acc list -> zipWith (\x y -> x + y) acc list) x listOfLists) x  
+
+nominatorValue :: [[Double]] -> [Double] -> [Double]
+nominatorValue objectsList currBeloningsCoeffsList = 
+    foldListOfLists $ zipWith (\currBelongingCoeff currObject  -> map (\x -> x * (currBelongingCoeff ** 2)) currObject) currBeloningsCoeffsList objectsList
+
+denominatorValue :: [Double] -> Double
+denominatorValue currBeloningsCoeffsList = 
+    foldl (\acc currBelongingCoeff -> acc + (currBelongingCoeff ** 2)) 0 currBeloningsCoeffsList
+
+getCenter :: [[Double]] -> [Double] -> [Double]
+getCenter objectsList currBeloningsCoeffsList =
+    map (\x -> x / (denominatorValue currBeloningsCoeffsList)) $ nominatorValue objectsList currBeloningsCoeffsList
+
+getCenters :: [[Double]] -> [[Double]] -> [[Double]]
+getCenters objectsList beloningsMatrix = 
+    map (\currBeloningsCoeffsList -> getCenter objectsList currBeloningsCoeffsList) $ transpose beloningsMatrix
+
+-----------------------------------------------------------------------------------------
 
 main = do
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
