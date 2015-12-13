@@ -11,12 +11,9 @@ import qualified Data.Text as T
 
 import Distance
 
+
 m = 2
 centersAmount = 2
-objectsList = [[1.0,2.0], [2.0,3.0], [3.0,4.0], [4.0,5.0]]
-centersList = [[1.0,2.0], [2.0,3.0]]
-currCenter = [1.0,2.0]
-currObject = [3.0,4.0]
 
 convertFromCsv :: V.Vector (Row String) -> [[Double]]
 convertFromCsv = processCsv . V.toList
@@ -26,7 +23,7 @@ convertFromCsv = processCsv . V.toList
       
 -------------------Initialization------------------------------------------------------
 getInitialCenters :: [a] -> Int -> [a]
-getInitialCenters xs n = take n xs  
+getInitialCenters objectsList n = take n objectsList  
 
 -------------------BelongingMatrixCalculation------------------------------------------
 
@@ -69,13 +66,36 @@ getCenters :: [[Double]] -> [[Double]] -> [[Double]]
 getCenters objectsList beloningsMatrix = 
     map (\currBeloningsCoeffsList -> getCenter objectsList currBeloningsCoeffsList) $ transpose beloningsMatrix
 
------------------------------------------------------------------------------------------
+--------------------Clasterization-------------------------------------------------------
+calculateCurrCoeff :: [[Double]] -> [[Double]] -> Double
+calculateCurrCoeff oldMatrix newMatrix = 
+    maximum ( map abs (zipWith (-) oldList newList) )
+    where oldList = concat oldMatrix
+          newList = concat newMatrix
 
+clasterizationFinished :: [[Double]] -> [[Double]] -> Double -> Bool
+clasterizationFinished oldMatrix newMatrix eps = 
+    if eps > currCoeff then True else False
+    where currCoeff = calculateCurrCoeff oldMatrix newMatrix
+
+runClasterization :: [[Double]] -> [[Double]] -> Double -> [[Double]]
+runClasterization objectsList beloningsMatrix eps
+  | clasterizationFinished beloningsMatrix nextBeloningsMatrix eps = nextBeloningsMatrix
+  | otherwise = runClasterization objectsList nextBeloningsMatrix eps
+  where nextBeloningsMatrix = getBeloningsMatrix objectsList $ getCenters objectsList beloningsMatrix
+
+run :: [[Double]] -> [[Double]]
+run objectsList = 
+    runClasterization objectsList beloningsMatrix 4
+    where beloningsMatrix = getBeloningsMatrix objectsList (getInitialCenters objectsList 2)
+
+---------------------------------------------------------------------------------------------
 main = do
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
-    input <- runResourceT $ readCSVFile csvOpts "../lab1_fcm_clustering/butterfly.txt"
+    input <- runResourceT $ readCSVFile csvOpts "../lab1_fcm_clustering/irises.txt"
 
     let objectsList = convertFromCsv input
     let centersList = getInitialCenters objectsList centersAmount
     let beloningsMatrix = getBeloningsMatrix objectsList centersList
-    print $ show beloningsMatrix
+    let resultMatrix = run objectsList
+    print $ show resultMatrix
