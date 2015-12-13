@@ -1,26 +1,24 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Main where
 
+import Control.Exception
 import System.IO
 import Data.Maybe
 import Data.CSV.Conduit
 import Data.Conduit
 import Data.Random.Extras
 import Data.List
+import System.Console.CmdArgs
 import qualified Data.Vector as V
 import qualified Data.Text as T
 
 import Distance
+import Converter
 
 
 m = 2
-centersAmount = 2
-
-convertFromCsv :: V.Vector (Row String) -> [[Double]]
-convertFromCsv = processCsv . V.toList
-    where processCsv = filter (not . null) . map processRow 
-          processRow = map (fromMaybe 0.0) . filter isJust . map maybeRead
-          maybeRead = fmap fst . listToMaybe . (reads :: String -> [(Double, String)])
-      
+     
 -------------------Initialization------------------------------------------------------
 getInitialCenters :: [a] -> Int -> [a]
 getInitialCenters objectsList n = take n objectsList  
@@ -30,7 +28,8 @@ getInitialCenters objectsList n = take n objectsList
 matrixCellValueOnIteration :: [Double] -> [Double] -> [Double] -> Double
 matrixCellValueOnIteration centerFromList currCenter currObject = 
     if isNaN func then 1 else func  
-    where func = ((euclidDistance currObject currCenter) / (euclidDistance currObject centerFromList)) ** (2 / (m - 1))
+    --where func = ((euclidDistance currObject currCenter) / (euclidDistance currObject centerFromList)) ** (2 / (m - 1))
+    where func = ((hammingDistance currObject currCenter) / (hammingDistance currObject centerFromList)) ** (2 / (m - 1))
 
 matrixCellValue :: [[Double]] -> [Double] -> [Double] -> Double
 matrixCellValue centersList currCenter currObject = 
@@ -66,7 +65,7 @@ getCenters :: [[Double]] -> [[Double]] -> [[Double]]
 getCenters objectsList beloningsMatrix = 
     map (\currBeloningsCoeffsList -> getCenter objectsList currBeloningsCoeffsList) $ transpose beloningsMatrix
 
---------------------Clasterization-------------------------------------------------------
+--------------------Clasterization----------------------------------------------------------
 calculateCurrCoeff :: [[Double]] -> [[Double]] -> Double
 calculateCurrCoeff oldMatrix newMatrix = 
     maximum ( map abs (zipWith (-) oldList newList) )
@@ -83,19 +82,41 @@ runClasterization objectsList beloningsMatrix eps
   | clasterizationFinished beloningsMatrix nextBeloningsMatrix eps = nextBeloningsMatrix
   | otherwise = runClasterization objectsList nextBeloningsMatrix eps
   where nextBeloningsMatrix = getBeloningsMatrix objectsList $ getCenters objectsList beloningsMatrix
-
-run :: [[Double]] -> [[Double]]
-run objectsList = 
-    runClasterization objectsList beloningsMatrix 4
-    where beloningsMatrix = getBeloningsMatrix objectsList (getInitialCenters objectsList 2)
-
+--------------------Exceptions---------------------------------------------------------------
+handleAll :: (SomeException -> IO a) -> IO a -> IO a
+handleAll = handle
 ---------------------------------------------------------------------------------------------
+data InputConfigs = InputConfigs {
+  delemiter :: String
+  ,inputFile :: FilePath
+  ,outputFile :: FilePath
+  ,numberOfCenters :: Int
+  ,epsilon :: Double
+  ,metrick :: Int
+  ,header :: Bool
+  ,rowNumber :: Bool
+  ,label :: Bool
+  } deriving (Show, Data, Typeable)
+
+defaultInputConfigs = InputConfigs {
+  delemiter = ","                                             &= help "Csv delemiter"
+  ,inputFile = "../lab1_fcm_clustering/irises.txt"            &= help "Input file name"
+  ,outputFile = ""                                            &= help "Output file name (default console)"
+  ,numberOfCenters = 2                                        &= help "Clusters number"
+  ,epsilon = 0.00001                                          &= help "Epsilon value"
+  ,metrick = 0                                                &= help "Metrick: 0 - Hamming, 1 - Evclide"                    
+  ,header = False                                             &= help "Have csv header?"
+  ,rowNumber = False                                          &= help "Have csv number (row's head)?"
+  ,label = False                                              &= help "Have csv class label (row's last)"
+}                                                             &= summary "Lab1 FCM 2015" &= program "lab1"
+--------------------------------------------------------------------------------------------
+
 main = do
+    configs <- cmdArgs defaultInputConfigs
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
-    input <- runResourceT $ readCSVFile csvOpts "../lab1_fcm_clustering/irises.txt"
+    input <- handleAll (\e -> error $ "Cannot read input file: " ++ show e ) $ runResourceT $ readCSVFile csvOpts $ inputFile configs
 
     let objectsList = convertFromCsv input
-    let centersList = getInitialCenters objectsList centersAmount
-    let beloningsMatrix = getBeloningsMatrix objectsList centersList
-    let resultMatrix = run objectsList
+    let beloningsMatrix = getBeloningsMatrix objectsList (getInitialCenters objectsList (numberOfCenters configs))
+    let resultMatrix = runClasterization objectsList beloningsMatrix (epsilon configs)
     print $ show resultMatrix
