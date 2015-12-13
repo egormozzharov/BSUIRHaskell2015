@@ -7,10 +7,11 @@ import qualified Data.Vector as V
 import qualified Data.Text as T
 import Data.CSV.Conduit
 import Data.Conduit
-
 import Data.Random.Extras
+import Distance
 
 m = 2
+centersAmount = 2
 objectsList = [[1.0,2.0], [2.0,3.0], [3.0,4.0], [4.0,5.0]]
 centersList = [[1.0,2.0], [2.0,3.0]]
 currCenter = [1.0,2.0]
@@ -22,14 +23,12 @@ convertFromCsv = processCsv . V.toList
           processRow = map (fromMaybe 0.0) . filter isJust . map maybeRead
           maybeRead = fmap fst . listToMaybe . (reads :: String -> [(Double, String)])
       
-euclidDistance :: Floating c => [c] -> [c] -> c
-euclidDistance a b = sqrt (sum (zipWith (\a b -> (a - b)**2) a b))
-
+-------------------Initialization------------------------------------------
 getInitialCenters :: [a] -> Int -> [a]
-getInitialCenters xs n = take n xs 
+getInitialCenters xs n = take n xs  
 
 -------------------BelongingMatrixCalculation------------------------------------------
- 
+
 matrixCellValueOnIteration :: [Double] -> [Double] -> [Double] -> Double
 matrixCellValueOnIteration centerFromList currCenter currObject = 
     if isNaN func then 1 else func  
@@ -43,16 +42,18 @@ getBeloningsCoeffsForObject :: [[Double]] -> [Double] -> [Double]
 getBeloningsCoeffsForObject centersList currObject = 
     map (\currCenter -> matrixCellValue centersList currCenter currObject) centersList
 
+
 getBeloningsMatrix :: [[Double]] -> [[Double]] -> [[Double]]
-getBeloningsMatrix objectsList centersList=
+getBeloningsMatrix objectsList scentersLit=
     map (\currObject -> getBeloningsCoeffsForObject centersList currObject) objectsList
 
-----------------------------------------------------------------------------------------
+--------------------CentersCalculation---------------------------------------------------
 
 main = do
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
     input <- runResourceT $ readCSVFile csvOpts "../lab1_fcm_clustering/butterfly.txt"
 
-    let list = convertFromCsv input
-
-    print $ show list
+    let objectsList = convertFromCsv input
+    let centersList = getInitialCenters objectsList centersAmount
+    let beloningsMatrix = getBeloningsMatrix objectsList centersList
+    print $ show beloningsMatrix
