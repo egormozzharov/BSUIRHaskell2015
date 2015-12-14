@@ -2,6 +2,7 @@
 
 module Main where
 
+import Numeric
 import Control.Exception
 import System.IO
 import Data.Maybe
@@ -12,26 +13,13 @@ import Data.List
 import System.Console.CmdArgs
 import qualified Data.Vector as V
 import qualified Data.Text as T
+import qualified Data.Conduit.Binary as CB
+import qualified Data.Conduit.List as CL
 
 import Distance
 import Converter
 import Clasterization
 
---------------------Exceptions---------------------------------------------------------------
-handleAll :: (SomeException -> IO a) -> IO a -> IO a
-handleAll = handle
----------------------------------------------------------------------------------------------
-data InputConfigs = InputConfigs {
-  delemiter :: String
-  ,inputFile :: FilePath
-  ,outputFile :: FilePath
-  ,numberOfCenters :: Int
-  ,epsilon :: Double
-  ,metrick :: Int
-  ,header :: Bool
-  ,rowNumber :: Bool
-  ,label :: Bool
-  } deriving (Show, Data, Typeable)
 
 defaultInputConfigs = InputConfigs {
   delemiter = ","                                             &= help "Csv delemiter"
@@ -51,6 +39,7 @@ main = do
     let csvOpts = defCSVSettings {csvSep = (head (",")), csvQuoteChar = Nothing}  
     input <- handleAll (\e -> error $ "Cannot read input file: " ++ show e ) $ runResourceT $ readCSVFile csvOpts $ inputFile configs
 
-    let objectsList = convertFromCsv input
-    let resultMatrix = run objectsList (epsilon configs) (numberOfCenters configs)
-    print $ show resultMatrix
+    let objectsList = convertFromCsv configs input
+    let resultMatrix = run objectsList (epsilon configs) (numberOfCenters configs)    
+    
+    runResourceT $ CL.sourceList (convertToCsv configs resultMatrix) $$ CB.sinkIOHandle (buildOutputHandle configs)
